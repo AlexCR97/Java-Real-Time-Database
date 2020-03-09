@@ -21,17 +21,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class RealTimeDatabase {
-
-    public static interface OnChangeAllValuesListener {
-        public void onChangeAllValues(List<Map<String, Object>> maps);
+    
+    public static interface OnChangeAllValuesListener<T extends Object> {
+        public void onChangeAllValues(List<T> values);
     }
     
-    public static interface OnChangeNewValuesListener {
-        public void onChangeNewValues(List<Map<String, Object>> maps);
+    public static interface OnChangeNewValuesListener<T extends Object> {
+        public void onChangeNewValues(List<T> values);
     }
     
-    public static interface OnChangeOldValuesListener {
-        public void onChangeOldValues(List<Map<String, Object>> maps);
+    public static interface OnChangeOldValuesListener<T extends Object> {
+        public void onChangeOldValues(List<T> values);
     }
     
     private final String host;
@@ -45,7 +45,7 @@ public class RealTimeDatabase {
     private final Map<String, OnChangeAllValuesListener> allValuesListeners = new HashMap<>();
     private final Map<String, OnChangeNewValuesListener> newValuesListeners = new HashMap<>();
     private final Map<String, OnChangeOldValuesListener> oldValuesListeners = new HashMap<>();
-    private final Map<String, List<Map<String, Object>>> oldValuesLists = new HashMap<>();
+    private final Map<String, List> oldValuesLists = new HashMap<>();
     
     public RealTimeDatabase(String host, String port, String database, String user, String password) {
         this.host = host;
@@ -310,15 +310,27 @@ public class RealTimeDatabase {
         );
     }
     
-    public void setOnChangeAllValuesListener(String table, OnChangeAllValuesListener allValuesListener) {
+    public void setOnChangeAllValuesListener(String table, OnChangeAllValuesListener<Map<String, Object>> allValuesListener) {
         allValuesListeners.put(table, allValuesListener);
     }
     
-    public void setOnChangeNewValuesListener(String table, OnChangeNewValuesListener newValuesListener) {
+    public <T extends Object> void setOnChangeAllValuesListener(String table, Class<T> clazz, OnChangeAllValuesListener<T> allValuesListener) {
+        allValuesListeners.put(table, allValuesListener);
+    }
+    
+    public void setOnChangeNewValuesListener(String table, OnChangeNewValuesListener<Map<String, Object>> newValuesListener) {
         newValuesListeners.put(table, newValuesListener);
     }
     
-    public void setOnChangeOldValuesListener(String table, OnChangeOldValuesListener oldValuesListener) {
+    public <T extends Object> void setOnChangeNewValuesListener(String table, Class<T> clazz, OnChangeNewValuesListener<T> newValuesListener) {
+        newValuesListeners.put(table, newValuesListener);
+    }
+    
+    public void setOnChangeOldValuesListener(String table, OnChangeOldValuesListener<Map<String, Object>> oldValuesListener) {
+        oldValuesListeners.put(table, oldValuesListener);
+    }
+    
+    public <T extends Object> void setOnChangeOldValuesListener(String table, Class<T> clazz, OnChangeOldValuesListener oldValuesListener) {
         oldValuesListeners.put(table, oldValuesListener);
     }
     
@@ -329,6 +341,44 @@ public class RealTimeDatabase {
             try {
                 List<Map<String, Object>> allValuesList = get(table).get();
                 List<Map<String, Object>> newValuesList = new ArrayList<>();
+                
+                newValuesList.addAll(allValuesList);
+                newValuesList.removeAll(oldValuesLists.get(table));
+                
+                boolean changeInDatabase = !allValuesList.equals(oldValuesLists.get(table));
+                
+                if (changeInDatabase) {
+                    if (allValuesListeners.containsKey(table)) {
+                        allValuesListeners.get(table).onChangeAllValues(allValuesList);
+                    }
+                    
+                    if (newValuesListeners.containsKey(table)) {
+                        newValuesListeners.get(table).onChangeNewValues(newValuesList);
+                    }
+                    
+                    if (oldValuesListeners.containsKey(table)) {
+                        oldValuesListeners.get(table).onChangeOldValues(oldValuesLists.get(table));
+                    }
+                }
+                
+                oldValuesLists.get(table).clear();
+                oldValuesLists.get(table).addAll(allValuesList);
+            }
+            catch (InterruptedException | ExecutionException ex) {
+                ex.printStackTrace();
+            }
+        }, 0, delayInMilliseconds, TimeUnit.MILLISECONDS);
+        
+        listeningThreads.put(table, thread);
+    }
+    
+    public <T extends Object> void startListening(String table, Class<T> clazz, long delayInMilliseconds) {
+        oldValuesLists.put(table, new ArrayList<>());
+        
+        ScheduledFuture thread = Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> {
+            try {
+                List<T> allValuesList = get(table, clazz).get();
+                List<T> newValuesList = new ArrayList<>();
                 
                 newValuesList.addAll(allValuesList);
                 newValuesList.removeAll(oldValuesLists.get(table));
