@@ -22,15 +22,45 @@ import java.util.stream.Collectors;
 
 public class RealTimeDatabase {
     
+    /**
+     * Represents the operation executed when a new change is given on the listened table.
+     * This interface takes into account all the records within the table.
+     * @param <T> The type that represents the entities within the table in the database
+     */
+    @FunctionalInterface
     public static interface OnChangeAllValuesListener<T extends Object> {
+        /**
+         * Executes this operation with the given list of objects
+         * @param values All the values within the table
+         */
         public void onChangeAllValues(List<T> values);
     }
     
+    /**
+     * Represents the operation executed when a new change is given on the listened table.
+     * This interface only takes into account the new records within the table.
+     * @param <T> The type that represents the entities within the table in the database
+     */
+    @FunctionalInterface
     public static interface OnChangeNewValuesListener<T extends Object> {
+        /**
+         * Executes this operation with the given list of objects
+         * @param values The new values within the table
+         */
         public void onChangeNewValues(List<T> values);
     }
     
+    /**
+     * Represents the operation executed when a new change is given on the listened table.
+     * This interface only takes into account the old records within the table.
+     * @param <T> The type that represents the entities within the table in the database
+     */
+    @FunctionalInterface
     public static interface OnChangeOldValuesListener<T extends Object> {
+        /**
+         * Executes this operation with the given list of objects
+         * @param values The old values within the table
+         */
         public void onChangeOldValues(List<T> values);
     }
     
@@ -47,6 +77,15 @@ public class RealTimeDatabase {
     private final Map<String, OnChangeOldValuesListener> oldValuesListeners = new HashMap<>();
     private final Map<String, List> oldValuesLists = new HashMap<>();
     
+    /**
+     * Creates a new instance for a real time database
+     * 
+     * @param host The server on which the database is located
+     * @param port The port on which the server is listening
+     * @param database The name of the database
+     * @param user The user to log into the server
+     * @param password The password to log into the server
+     */
     public RealTimeDatabase(String host, String port, String database, String user, String password) {
         this.host = host;
         this.port = port;
@@ -54,7 +93,13 @@ public class RealTimeDatabase {
         this.user = user;
         this.password = password;
     }
-
+    
+    /**
+     * Adds the provided entity to the database (performs an INSERT operation)
+     * @param table The name of the table in which to insert the data
+     * @param map A map used to represent the entity
+     * @return A future that will return a boolean, indicating whether the operation was successful or not
+     */
     public CompletableFuture<Boolean> add(String table, Map<String, Object> map) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = getConnection().get()) {
@@ -75,11 +120,23 @@ public class RealTimeDatabase {
         });
     }
     
+    /**
+     * Adds the provided entity to the database (performs an INSERT operation)
+     * @param <T> The type that represents the entities within the table in the database
+     * @param table The name of the table in which to insert the data
+     * @param object The POJO (Plain Old Java Object) used to represent the entity
+     * @return A future that will return a boolean, indicating whether the operation was successful or not
+     */
     public <T extends Object> CompletableFuture<Boolean> add(String table, T object) {
         Map<String, Object> map = pojoToMap(object);
         return add(table, map);
     }
     
+    /**
+     * Gets all the records from the specified table (performs a SELECT operation)
+     * @param table The name of the table from which to select data
+     * @return A future what will return a list containing maps that represent the entities of the table
+     */
     public CompletableFuture<List<Map<String, Object>>> get(String table) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = getConnection().get()) {
@@ -111,6 +168,13 @@ public class RealTimeDatabase {
         });
     }
     
+    /**
+     * Gets all the records from the specified table (performs a SELECT operation)
+     * @param <T> The type that represents the entities within the table in the database
+     * @param table The name of the table from which to select data
+     * @param clazz The POJO class to which convert the table records
+     * @return A future what will return a list containing POJOs that represent the entities of the table
+     */
     public <T extends Object> CompletableFuture<List<T>> get(String table, Class<T> clazz) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -129,6 +193,13 @@ public class RealTimeDatabase {
         });
     }
     
+    /**
+     * Gets the record from the specified table that matches the given id (performs a SELECT WHERE operation)
+     * @param table The name of the table from which to select data
+     * @param idColumn The column name the query will use to filter
+     * @param idValue The value corresponding to the given column name
+     * @return A future that will return a map representing the selected entity from the table
+     */
     public CompletableFuture<Map<String, Object>> get(String table, String idColumn, Object idValue) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = getConnection().get()) {
@@ -160,6 +231,23 @@ public class RealTimeDatabase {
         });
     }
     
+    /**
+     * Gets the record from the specified table that matches the given id (performs a SELECT WHERE operation)
+     * @param table The name of the table from which to select data
+     * @param idColumn The column name the query will use to filter
+     * @param idValue The value corresponding to the given column name
+     * @return A future that will return a map representing the selected entity from the table
+     */
+    
+    /**
+     * Gets the record from the specified table that matches the given id (performs a SELECT WHERE operation)
+     * @param <T> The type that represents the entities within the table in the database
+     * @param table The name of the table from which to select data
+     * @param idColumn The column name the query will use to filter
+     * @param idValue The value corresponding to the given column name
+     * @param clazz The POJO class to which convert the table record
+     * @return A future that will return a POJO representing the selected entity from the table
+     */
     public <T extends Object> CompletableFuture<T> get(String table, String idColumn, Object idValue, Class<T> clazz) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -173,6 +261,13 @@ public class RealTimeDatabase {
         });
     }
     
+    /**
+     * Removes the entity which has the given column-value from the table (performs a DELETE WHERE operation)
+     * @param table The name of the table from which to delete data
+     * @param idColumn The column name the query will use to filter
+     * @param idValue The value corresponding to the given column name
+     * @return A future that will return a boolean, indicating whether the operation was successful or not
+     */
     public CompletableFuture<Boolean> remove(String table, String idColumn, Object idValue) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = getConnection().get()) {
@@ -189,6 +284,14 @@ public class RealTimeDatabase {
         });
     }
     
+    /**
+     * Updates the entity which has the given column-value from the table (performs UPDATE WHERE operation)
+     * @param table The name of the table from which to delete data
+     * @param map A map used to represent the entity
+     * @param idColumn The column name the query will use to filter
+     * @param idValue The value corresponding to the given column name
+     * @return A future that will return a boolean, indicating whether the operation was successful or not
+     */
     public CompletableFuture<Boolean> update(String table, Map<String, Object> map, String idColumn, Object idValue) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = getConnection().get()) {
@@ -211,12 +314,27 @@ public class RealTimeDatabase {
         });
     }
     
+    /**
+     * Updates the entity which has the given column-value from the table (performs UPDATE WHERE operation)
+     * @param <T> The type that represents the entities within the table in the database
+     * @param table The name of the table in which to insert the data
+     * @param object The POJO (Plain Old Java Object) used to represent the entity
+     * @param idColumn The column name the query will use to filter
+     * @param idValue The value corresponding to the given column name
+     * @return A future that will return a boolean, indicating whether the operation was successful or not
+     */
     public <T extends Object> CompletableFuture<Boolean> update(String table, T object, String idColumn, Object idValue) {
         Map<String, Object> map = pojoToMap(object);
         return update(table, map, idColumn, idValue);
     }
     
-    public String buildAddQuery(String table, List<String> columnNames) {
+    /**
+     * Generates an INSERT query
+     * @param table The name of the table
+     * @param columnNames The names of the columns
+     * @return A string that represents an INSERT query, given the table name and the columns
+     */
+    private String buildAddQuery(String table, List<String> columnNames) {
         StringBuilder sb = new StringBuilder();
         
         List<String> placeholders = columnNames.stream()
@@ -234,6 +352,11 @@ public class RealTimeDatabase {
         return sb.toString();
     }
     
+    /**
+     * Generates a SELECT query
+     * @param table The name of the table
+     * @return A string that represents a SELECT query, given the table name
+     */
     public String buildGetQuery(String table) {
         StringBuilder sb = new StringBuilder();
         
@@ -243,6 +366,12 @@ public class RealTimeDatabase {
         return sb.toString();
     }
     
+    /**
+     * Generates a SELECT WHERE query
+     * @param table The name of the table
+     * @param idColumn The id column used for the WHERE clause
+     * @return A string that represents a SELECT WHERE query, given the table name
+     */
     public String buildGetQuery(String table, String idColumn) {
         StringBuilder sb = new StringBuilder();
         
@@ -255,6 +384,12 @@ public class RealTimeDatabase {
         return sb.toString();
     }
     
+    /**
+     * Generates a DELETE WHERE query
+     * @param table The name of the table
+     * @param idColumn The id column used for the WHERE clause
+     * @return A string that represents a DELETE WHERE query
+     */
     public String buildRemoveQuery(String table, String idColumn) {
         StringBuilder sb = new StringBuilder();
         
@@ -267,6 +402,13 @@ public class RealTimeDatabase {
         return sb.toString();
     }
     
+    /**
+     * Generates an UPDATE WHERE query
+     * @param table The name of the table
+     * @param columnNames The names of the columns
+     * @param idColumn The id column used for the WHERE clause
+     * @return A string that represents an UPDATE WHERE clause
+     */
     public String buildUpdateQuery(String table, List<String> columnNames, String idColumn) {
         StringBuilder sb = new StringBuilder();
         
@@ -285,6 +427,10 @@ public class RealTimeDatabase {
         return sb.toString();
     }
     
+    /**
+     * Gets the connection object for the corresponding database
+     * @return The connection object
+     */
     public CompletableFuture<Connection> getConnection() {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -297,6 +443,10 @@ public class RealTimeDatabase {
         });
     }
     
+    /**
+     * Gets the connection URL for the corresponding database
+     * @return The URL string
+     */
     public String getConnectionUrl() {
         return String.format(
                 "jdbc:mysql://%s:%s/%s?"
@@ -310,30 +460,79 @@ public class RealTimeDatabase {
         );
     }
     
+    /**
+     * Sets the listener to be triggered when changes on the listened table occur.
+     * The data provided for this listener are all the values from the table.
+     * @param table The name of the table
+     * @param allValuesListener The listener
+     */
     public void setOnChangeAllValuesListener(String table, OnChangeAllValuesListener<Map<String, Object>> allValuesListener) {
         allValuesListeners.put(table, allValuesListener);
     }
     
+    /**
+     * Sets the listener to be triggered when changes on the listened table occur.
+     * The data provided for this listener are all the values from the table.
+     * @param <T> The type that represents the entities within the table in the database
+     * @param table The name of the table
+     * @param clazz The POJO class to which convert the table record
+     * @param allValuesListener The listener
+     */
     public <T extends Object> void setOnChangeAllValuesListener(String table, Class<T> clazz, OnChangeAllValuesListener<T> allValuesListener) {
         allValuesListeners.put(table, allValuesListener);
     }
     
+    /**
+     * Sets the listener to be triggered when changes on the listened table occur.
+     * The data provided for this listener are the new values from the table.
+     * @param table The name of the table
+     * @param newValuesListener The listener
+     */
     public void setOnChangeNewValuesListener(String table, OnChangeNewValuesListener<Map<String, Object>> newValuesListener) {
         newValuesListeners.put(table, newValuesListener);
     }
     
+    /**
+     * Sets the listener to be triggered when changes on the listened table occur.
+     * The data provided for this listener are the new values from the table.
+     * @param <T> The type that represents the entities within the table in the database
+     * @param table The name of the table
+     * @param clazz The POJO class to which convert the table record
+     * @param newValuesListener The listener
+     */
     public <T extends Object> void setOnChangeNewValuesListener(String table, Class<T> clazz, OnChangeNewValuesListener<T> newValuesListener) {
         newValuesListeners.put(table, newValuesListener);
     }
     
+    /**
+     * Sets the listener to be triggered when changes on the listened table occur.
+     * The data provided for this listener are the old values from the table.
+     * @param table The name of the table
+     * @param oldValuesListener The listener
+     */
     public void setOnChangeOldValuesListener(String table, OnChangeOldValuesListener<Map<String, Object>> oldValuesListener) {
         oldValuesListeners.put(table, oldValuesListener);
     }
     
+    /**
+     * Sets the listener to be triggered when changes on the listened table occur.
+     * The data provided for this listener are the old values from the table.
+     * @param <T> The type that represents the entities within the table in the database
+     * @param table The name of the table
+     * @param clazz The POJO class to which convert the table record
+     * @param oldValuesListener The listener
+     */
     public <T extends Object> void setOnChangeOldValuesListener(String table, Class<T> clazz, OnChangeOldValuesListener oldValuesListener) {
         oldValuesListeners.put(table, oldValuesListener);
     }
     
+    /**
+     * Observes for changes in the specified table every N milliseconds.
+     * When any change in the table is detected, this method triggers the changes listeners
+     * and provides the data changes.
+     * @param table The name of the table
+     * @param delayInMilliseconds The interval in which to listen to changes
+     */
     public void startListening(String table, long delayInMilliseconds) {
         oldValuesLists.put(table, new ArrayList<>());
         
@@ -372,6 +571,15 @@ public class RealTimeDatabase {
         listeningThreads.put(table, thread);
     }
     
+    /**
+     * Observes for changes in the specified table every N milliseconds.
+     * When any change in the table is detected, this method triggers the changes listeners
+     * and provides the data changes.
+     * @param <T> The type that represents the entities within the table in the database
+     * @param table The name of the table
+     * @param clazz The POJO class to which convert the table records
+     * @param delayInMilliseconds The interval in which to listen to changes
+     */
     public <T extends Object> void startListening(String table, Class<T> clazz, long delayInMilliseconds) {
         oldValuesLists.put(table, new ArrayList<>());
         
@@ -410,23 +618,42 @@ public class RealTimeDatabase {
         listeningThreads.put(table, thread);
     }
     
-    public void stopListening(String table) throws Exception {
+    /**
+     * Stops checking for changes in the specified table. If no change listeners have been
+     * setup for the table, this method does nothing.
+     * @param table The name of the table
+     */
+    public void stopListening(String table) {
         if (!listeningThreads.containsKey(table)) {
-            throw new Exception("No listening thread found for table '" + table + "'");
+            return;
         }
         
         listeningThreads.get(table).cancel(true);
     }
     
+    /**
+     * Parses a map into a POJO
+     * @param <T> The type into which the map will be parsed
+     * @param map The map used to represent the POJO
+     * @param clazz The class of the POJO
+     * @return A POJO equivalent to the map representation
+     */
     private <T extends Object> T mapToPojo(Map<String, Object> map, Class<T> clazz) {
         JsonElement json = gson.toJsonTree(map);
         T object = gson.fromJson(json, clazz);
         return object;
     }
     
+    /**
+     * Parses a POJO into a map
+     * @param <T> The type from which the map will be parsed
+     * @param object The POJO
+     * @return A map equivalent to the POJO representation
+     */
     private <T extends Object> Map<String, Object> pojoToMap(T object) {
         String json = gson.toJson(object);
         Map<String, Object> map = gson.fromJson(json, Map.class);
         return map;
     }
 }
+
