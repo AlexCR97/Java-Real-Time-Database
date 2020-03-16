@@ -137,30 +137,15 @@ public class RealTimeDatabase {
      * @param table The name of the table from which to select data
      * @return A future what will return a list containing maps that represent the entities of the table
      */
-    public CompletableFuture<List<Map<String, Object>>> get(String table) {
+    public CompletableFuture<List<Map<String, Object>>> getAll(String table) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = getConnection().get()) {
+                
                 String query = buildGetQuery(table);
                 PreparedStatement statement = connection.prepareStatement(query);
-                
                 ResultSet resultSet = statement.executeQuery();
-                ResultSetMetaData metaData = resultSet.getMetaData();
                 
-                List<Map<String, Object>> maps = new ArrayList<>();
-                
-                while (resultSet.next()) {
-                    Map<String, Object> map = new HashMap<>();
-                
-                    for (int i = 1; i <= metaData.getColumnCount(); i++) {
-                        String key = metaData.getColumnName(i);
-                        Object value = resultSet.getObject(i);
-                        map.put(key, value);
-                    }
-                    
-                    maps.add(map);
-                }
-                
-                return maps;
+                return resultSetToMapList(resultSet);
             }
             catch (SQLException | InterruptedException | ExecutionException ex) {
                 throw new CompletionException(ex);
@@ -175,17 +160,11 @@ public class RealTimeDatabase {
      * @param clazz The POJO class to which convert the table records
      * @return A future what will return a list containing POJOs that represent the entities of the table
      */
-    public <T extends Object> CompletableFuture<List<T>> get(String table, Class<T> clazz) {
+    public <T extends Object> CompletableFuture<List<T>> getAll(String table, Class<T> clazz) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                List<T> objects = new ArrayList<>();
-        
-                get(table).get().forEach(map -> {
-                    T object = mapToPojo(map, clazz);
-                    objects.add(object);
-                });
-
-                return objects;
+                List<Map<String, Object>> maps = getAll(table).get();
+                return mapListToPojoList(maps, clazz);
             }
             catch (InterruptedException | ExecutionException ex) {
                 throw new CompletionException(ex);
@@ -200,30 +179,18 @@ public class RealTimeDatabase {
      * @param idValue The value corresponding to the given column name
      * @return A future that will return a map representing the selected entity from the table
      */
-    public CompletableFuture<Map<String, Object>> get(String table, String idColumn, Object idValue) {
+    public CompletableFuture<Map<String, Object>> getWhere(String table, String idColumn, Object idValue) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = getConnection().get()) {
                 String query = buildGetQuery(table, idColumn);
-                PreparedStatement statement = connection.prepareStatement(query);
                 
+                PreparedStatement statement = connection.prepareStatement(query);
                 statement.setObject(1, idValue);
                 
                 ResultSet resultSet = statement.executeQuery();
+                List<Map<String, Object>> maps = resultSetToMapList(resultSet);
                 
-                if (!resultSet.next())
-                    return null;
-                
-                ResultSetMetaData metaData = resultSet.getMetaData();
-                
-                Map<String, Object> map = new HashMap<>();
-                
-                for (int i = 1; i <= metaData.getColumnCount(); i++) {
-                    String key = metaData.getColumnName(i);
-                    Object value = resultSet.getObject(i);
-                    map.put(key, value);
-                }
-                
-                return map;
+                return maps.get(0);
             }
             catch (SQLException | InterruptedException | ExecutionException ex) {
                 throw new CompletionException(ex);
@@ -240,12 +207,11 @@ public class RealTimeDatabase {
      * @param clazz The POJO class to which convert the table record
      * @return A future that will return a POJO representing the selected entity from the table
      */
-    public <T extends Object> CompletableFuture<T> get(String table, String idColumn, Object idValue, Class<T> clazz) {
+    public <T extends Object> CompletableFuture<T> getWhere(String table, String idColumn, Object idValue, Class<T> clazz) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Map<String, Object> map = get(table, idColumn, idValue).get();
-                T object = mapToPojo(map, clazz);
-                return object;
+                Map<String, Object> map = getWhere(table, idColumn, idValue).get();
+                return mapToPojo(map, clazz);
             }
             catch (InterruptedException | ExecutionException ex) {
                 throw new CompletionException(ex);
@@ -321,33 +287,16 @@ public class RealTimeDatabase {
     }
     
     /**
-     * Executes a custom read query. It is expected to get list of table records from this method.
+     * Executes a custom read query. It is expected to get a list of table records from this method.
      * @param query The SQL query to be executed
      * @return A future what will return a list containing maps that represent the entities of the table
      */
-    public CompletableFuture<List<Map<String, Object>>> executeReadQuery(String query) {
+    public CompletableFuture<List<Map<String, Object>>> readQuery(String query) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = getConnection().get()) {
-                List<Map<String, Object>> maps = new ArrayList<>();
                 PreparedStatement statement = connection.prepareStatement(query);
                 ResultSet resultSet = statement.executeQuery();
-                
-                if (!resultSet.next())
-                    return maps;
-                
-                ResultSetMetaData metaData = resultSet.getMetaData();
-                
-                Map<String, Object> map = new HashMap<>();
-                
-                for (int i = 1; i <= metaData.getColumnCount(); i++) {
-                    String key = metaData.getColumnName(i);
-                    Object value = resultSet.getObject(i);
-                    map.put(key, value);
-                    
-                    maps.add(map);
-                }
-                
-                return maps;
+                return resultSetToMapList(resultSet);
             }
             catch (SQLException | InterruptedException | ExecutionException ex) {
                 throw new CompletionException(ex);
@@ -356,24 +305,62 @@ public class RealTimeDatabase {
     }
     
     /**
-     * Executes a custom read query. It is expected to get list of table records from this method.
+     * Executes a custom read query. It is expected to get a list of table records from this method.
      * @param <T> The type that represents the entities within the table in the database
      * @param query The SQL query to be executed
      * @param clazz The POJO class to which convert the table records
      * @return A future what will return a list containing objects that represent the entities of the table
      */
-    public <T extends Object> CompletableFuture<List<T>> executeReadQuery(String query, Class<T> clazz) {
+    public <T extends Object> CompletableFuture<List<T>> readQuery(String query, Class<T> clazz) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                List<T> objects = new ArrayList<>();
-                List<Map<String, Object>> maps = executeReadQuery(query).get();
+                List<Map<String, Object>> maps = readQuery(query).get();
+                return mapListToPojoList(maps, clazz);
+            }
+            catch (InterruptedException | ExecutionException ex) {
+                throw new CompletionException(ex);
+            }
+        });
+    }
+    
+    /**
+     * Executes a custom prepared statement. It is expected to get a list of table records from this method.
+     * @param query The SQL query to be executed
+     * @param values The values of the prepared statement
+     * @return A future what will return a list containing maps that represent the entities of the table
+     */
+    public CompletableFuture<List<Map<String, Object>>> readStatement(String query, Map<String, Object> values) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = getConnection().get()) {
+                PreparedStatement statement = connection.prepareStatement(query);
                 
-                maps.forEach(map -> {
-                    T object = mapToPojo(map, clazz);
-                    objects.add(object);
-                });
+                int index = 1;
+                for (Map.Entry<String, Object> entry : values.entrySet()) {
+                    statement.setObject(index++, entry.getValue());
+                }
                 
-                return objects;
+                ResultSet resultSet = statement.executeQuery();
+                return resultSetToMapList(resultSet);
+            }
+            catch (SQLException | InterruptedException | ExecutionException ex) {
+                throw new CompletionException(ex);
+            }
+        });
+    }
+    
+    /**
+     * Executes a custom prepared statement. It is expected to get a list of table records from this method.
+     * @param <T> The type that represents the entities within the table in the database
+     * @param query The SQL query to be executed
+     * @param values The values of the prepared statement
+     * @param clazz The POJO class to which convert the table records
+     * @return A future what will return a list containing objects that represent the entities of the table
+     */
+    public <T extends Object> CompletableFuture<List<T>> readStatement(String query, Map<String, Object> values, Class<T> clazz) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                List<Map<String, Object>> maps = readStatement(query, values).get();
+                return mapListToPojoList(maps, clazz);
             }
             catch (InterruptedException | ExecutionException ex) {
                 throw new CompletionException(ex);
@@ -591,7 +578,7 @@ public class RealTimeDatabase {
         
         ScheduledFuture thread = Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> {
             try {
-                List<Map<String, Object>> allValuesList = get(table).get();
+                List<Map<String, Object>> allValuesList = getAll(table).get();
                 List<Map<String, Object>> newValuesList = new ArrayList<>();
                 
                 newValuesList.addAll(allValuesList);
@@ -638,7 +625,7 @@ public class RealTimeDatabase {
         
         ScheduledFuture thread = Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> {
             try {
-                List<T> allValuesList = get(table, clazz).get();
+                List<T> allValuesList = getAll(table, clazz).get();
                 List<T> newValuesList = new ArrayList<>();
                 
                 newValuesList.addAll(allValuesList);
@@ -698,6 +685,24 @@ public class RealTimeDatabase {
     }
     
     /**
+     * Parses a whole list of maps into a list of POJOs
+     * @param <T> The type into which the map will be parsed
+     * @param map The map used to represent the POJO
+     * @param clazz The class of the POJO
+     * @return A list containing all the POJO equivalents of the maps in the provided list
+     */
+    private <T extends Object> List<T> mapListToPojoList(List<Map<String, Object>> maps, Class<T> clazz) {
+        List<T> objects = new ArrayList<>();
+        
+        maps.forEach(map -> {
+            T object = mapToPojo(map, clazz);
+            objects.add(object);
+        });
+        
+        return objects;
+    }
+    
+    /**
      * Parses a POJO into a map
      * @param <T> The type from which the map will be parsed
      * @param object The POJO
@@ -707,6 +712,30 @@ public class RealTimeDatabase {
         String json = gson.toJson(object);
         Map<String, Object> map = gson.fromJson(json, Map.class);
         return map;
+    }
+    
+    private List<Map<String, Object>> resultSetToMapList(ResultSet resultSet) throws SQLException {
+        ResultSetMetaData metaData = resultSet.getMetaData();
+        List<Map<String, Object>> maps = new ArrayList<>();
+        
+        while (resultSet.next()) {
+            Map<String, Object> map = new HashMap<>();
+
+            for (int i = 1; i <= metaData.getColumnCount(); i++) {
+                String key = metaData.getColumnName(i);
+                Object value = resultSet.getObject(i);
+                map.put(key, value);
+            }
+
+            maps.add(map);
+        }
+        
+        return maps;
+    }
+    
+    private <T extends Object> List<T> resultSetToPojoList(ResultSet resultSet, Class<T> clazz) throws SQLException {
+        List<Map<String, Object>> maps = resultSetToMapList(resultSet);
+        return mapListToPojoList(maps, clazz);
     }
 }
 

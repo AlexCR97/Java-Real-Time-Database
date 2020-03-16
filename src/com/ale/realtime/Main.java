@@ -1,6 +1,7 @@
 package com.ale.realtime;
 
-import java.sql.Connection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 public class Main {
@@ -8,41 +9,49 @@ public class Main {
     public static void main(String[] args) throws InterruptedException, ExecutionException {
         
         RealTimeDatabase db = new RealTimeDatabase(
-                "remotemysql.com",
+                "localhost",
                 "3306",
-                "XtRKorjMr6",
-                "XtRKorjMr6",
-                "smL3J59hNk"
+                "realtime_db",
+                "root",
+                "1234"
         );
         
-        System.out.println("Getting connection...");
+        System.out.println("Getting maps...");
+        db.getAll("users").get().forEach(System.out::println);
+        System.out.println("");
         
-        Connection conn = db.getConnection().get();
+        System.out.println("Getting POJOs...");
+        db.getAll("users", User.class).get().forEach(System.out::println);
+        System.out.println("");
         
-        if (conn == null) {
-            System.out.println("Connection could not be established :(");
-            return;
-        }
+        System.out.println("Getting map where...");
+        System.out.println(db.getWhere("users", "id", 5).get());
+        System.out.println("");
         
-        db.startListening("users", User.class, 1000);
-        System.out.println("Listening table users...");
+        System.out.println("Getting POJO where...");
+        System.out.println(db.getWhere("users", "id", 5, User.class).get());
+        System.out.println("");
         
-        db.setOnChangeAllValuesListener("users", User.class, allValues -> {
-            System.out.println("Change in database! All values are:");
-            allValues.forEach(System.out::println);
-            System.out.println("===================================");
-        });
+        System.out.println("Reading maps...");
+        db.readQuery("select * from users").get().forEach(System.out::println);
+        System.out.println("");
         
-        db.setOnChangeNewValuesListener("users", User.class, newValues -> {
-            System.out.println("Change in database! New values are:");
-            newValues.forEach(System.out::println);
-            System.out.println("===================================");
-        });
+        System.out.println("Reading POJOs...");
+        db.readQuery("select * from users", User.class).get().forEach(System.out::println);
+        System.out.println("");
         
-        db.setOnChangeOldValuesListener("users", User.class, oldValues -> {
-            System.out.println("Change in database! Old values are:");
-            oldValues.forEach(System.out::println);
-            System.out.println("===================================");
-        });
+        Map<String, Object> map;
+        
+        System.out.println("Statement maps...");
+        map = new HashMap<>();
+        map.put("id", 3);
+        db.readStatement("select * from users where id = ?", map).get().forEach(System.out::println);
+        System.out.println("");
+        
+        System.out.println("Statement POJOs...");
+        map = new HashMap<>();
+        map.put("id", 3);
+        db.readStatement("select * from users where id = ?", map, User.class).get().forEach(System.out::println);
+        System.out.println("");
     }
 }
