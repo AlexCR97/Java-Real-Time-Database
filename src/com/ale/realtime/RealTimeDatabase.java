@@ -233,14 +233,6 @@ public class RealTimeDatabase {
     
     /**
      * Gets the record from the specified table that matches the given id (performs a SELECT WHERE operation)
-     * @param table The name of the table from which to select data
-     * @param idColumn The column name the query will use to filter
-     * @param idValue The value corresponding to the given column name
-     * @return A future that will return a map representing the selected entity from the table
-     */
-    
-    /**
-     * Gets the record from the specified table that matches the given id (performs a SELECT WHERE operation)
      * @param <T> The type that represents the entities within the table in the database
      * @param table The name of the table from which to select data
      * @param idColumn The column name the query will use to filter
@@ -326,6 +318,67 @@ public class RealTimeDatabase {
     public <T extends Object> CompletableFuture<Boolean> update(String table, T object, String idColumn, Object idValue) {
         Map<String, Object> map = pojoToMap(object);
         return update(table, map, idColumn, idValue);
+    }
+    
+    /**
+     * Executes a custom read query. It is expected to get list of table records from this method.
+     * @param query The SQL query to be executed
+     * @return A future what will return a list containing maps that represent the entities of the table
+     */
+    public CompletableFuture<List<Map<String, Object>>> executeReadQuery(String query) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = getConnection().get()) {
+                List<Map<String, Object>> maps = new ArrayList<>();
+                PreparedStatement statement = connection.prepareStatement(query);
+                ResultSet resultSet = statement.executeQuery();
+                
+                if (!resultSet.next())
+                    return maps;
+                
+                ResultSetMetaData metaData = resultSet.getMetaData();
+                
+                Map<String, Object> map = new HashMap<>();
+                
+                for (int i = 1; i <= metaData.getColumnCount(); i++) {
+                    String key = metaData.getColumnName(i);
+                    Object value = resultSet.getObject(i);
+                    map.put(key, value);
+                    
+                    maps.add(map);
+                }
+                
+                return maps;
+            }
+            catch (SQLException | InterruptedException | ExecutionException ex) {
+                throw new CompletionException(ex);
+            }
+        });
+    }
+    
+    /**
+     * Executes a custom read query. It is expected to get list of table records from this method.
+     * @param <T> The type that represents the entities within the table in the database
+     * @param query The SQL query to be executed
+     * @param clazz The POJO class to which convert the table records
+     * @return A future what will return a list containing objects that represent the entities of the table
+     */
+    public <T extends Object> CompletableFuture<List<T>> executeReadQuery(String query, Class<T> clazz) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                List<T> objects = new ArrayList<>();
+                List<Map<String, Object>> maps = executeReadQuery(query).get();
+                
+                maps.forEach(map -> {
+                    T object = mapToPojo(map, clazz);
+                    objects.add(object);
+                });
+                
+                return objects;
+            }
+            catch (InterruptedException | ExecutionException ex) {
+                throw new CompletionException(ex);
+            }
+        });
     }
     
     /**

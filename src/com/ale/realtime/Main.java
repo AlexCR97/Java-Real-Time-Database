@@ -1,16 +1,28 @@
 package com.ale.realtime;
 
+import java.sql.Connection;
+import java.util.concurrent.ExecutionException;
+
 public class Main {
     
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
         
         RealTimeDatabase db = new RealTimeDatabase(
-                "localhost",
+                "remotemysql.com",
                 "3306",
-                "realtime_db",
-                "root",
-                "1234"
+                "XtRKorjMr6",
+                "XtRKorjMr6",
+                "smL3J59hNk"
         );
+        
+        System.out.println("Getting connection...");
+        
+        Connection conn = db.getConnection().get();
+        
+        if (conn == null) {
+            System.out.println("Connection could not be established :(");
+            return;
+        }
         
         db.startListening("users", User.class, 1000);
         System.out.println("Listening table users...");
