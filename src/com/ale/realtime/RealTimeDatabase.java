@@ -64,6 +64,7 @@ public class RealTimeDatabase {
         public void onChangeOldValues(List<T> values);
     }
     
+    private final DatabaseType databaseType;
     private final String host;
     private final String port;
     private final String database;
@@ -80,13 +81,15 @@ public class RealTimeDatabase {
     /**
      * Creates a new instance for a real time database
      * 
+     * @param databaseType The database engine to be used
      * @param host The server on which the database is located
      * @param port The port on which the server is listening
      * @param database The name of the database
      * @param user The user to log into the server
      * @param password The password to log into the server
      */
-    public RealTimeDatabase(String host, String port, String database, String user, String password) {
+    public RealTimeDatabase(DatabaseType databaseType, String host, String port, String database, String user, String password) {
+        this.databaseType = databaseType;
         this.host = host;
         this.port = port;
         this.database = database;
@@ -529,16 +532,22 @@ public class RealTimeDatabase {
      * @return The URL string
      */
     public String getConnectionUrl() {
-        return String.format(
-                "jdbc:mysql://%s:%s/%s?"
-                        + "useUnicode=true&"
-                        + "useJDBCCompliantTimezoneShift=true&"
-                        + "useLegacyDatetimeCode=false&"
-                        + "serverTimezone=UTC",
-                host,
-                port,
-                database
-        );
+        if (databaseType.equals(DatabaseType.MYSQL)) {
+            return String.format(
+                    "jdbc:mysql://%s:%s/%s?"
+                            + "useUnicode=true&"
+                            + "useJDBCCompliantTimezoneShift=true&"
+                            + "useLegacyDatetimeCode=false&"
+                            + "serverTimezone=UTC",
+                    host, port, database
+            );
+        }
+        else if (databaseType.equals(DatabaseType.POSTGRESQL)) {
+            return String.format("jdbc:postgresql://%s:%s/%s", host, port, database);
+        }
+        else {
+            return "";
+        }
     }
     
     /**
