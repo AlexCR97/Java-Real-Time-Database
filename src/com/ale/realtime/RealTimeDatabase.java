@@ -95,44 +95,6 @@ public class RealTimeDatabase {
     }
     
     /**
-     * Adds the provided entity to the database (performs an INSERT operation)
-     * @param table The name of the table in which to insert the data
-     * @param map A map used to represent the entity
-     * @return A future that will return a boolean, indicating whether the operation was successful or not
-     */
-    public CompletableFuture<Boolean> add(String table, Map<String, Object> map) {
-        return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = getConnection().get()) {
-                List<String> columnNames = map.keySet().stream().collect(Collectors.toList());
-                String query = buildAddQuery(table, columnNames);
-                PreparedStatement statement = connection.prepareStatement(query);
-                
-                int index = 1;
-                for (Map.Entry<String, Object> entry : map.entrySet()) {
-                    statement.setObject(index++, entry.getValue());
-                }
-                
-                return statement.executeUpdate() > 0;
-            }
-            catch (SQLException | InterruptedException | ExecutionException ex) {
-                throw new CompletionException(ex);
-            }
-        });
-    }
-    
-    /**
-     * Adds the provided entity to the database (performs an INSERT operation)
-     * @param <T> The type that represents the entities within the table in the database
-     * @param table The name of the table in which to insert the data
-     * @param object The POJO (Plain Old Java Object) used to represent the entity
-     * @return A future that will return a boolean, indicating whether the operation was successful or not
-     */
-    public <T extends Object> CompletableFuture<Boolean> add(String table, T object) {
-        Map<String, Object> map = pojoToMap(object);
-        return add(table, map);
-    }
-    
-    /**
      * Gets all the records from the specified table (performs a SELECT operation)
      * @param table The name of the table from which to select data
      * @return A future what will return a list containing maps that represent the entities of the table
@@ -220,73 +182,6 @@ public class RealTimeDatabase {
     }
     
     /**
-     * Removes the entity which has the given column-value from the table (performs a DELETE WHERE operation)
-     * @param table The name of the table from which to delete data
-     * @param idColumn The column name the query will use to filter
-     * @param idValue The value corresponding to the given column name
-     * @return A future that will return a boolean, indicating whether the operation was successful or not
-     */
-    public CompletableFuture<Boolean> remove(String table, String idColumn, Object idValue) {
-        return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = getConnection().get()) {
-                String query = buildRemoveQuery(table, idColumn);
-                PreparedStatement statement = connection.prepareStatement(query);
-                
-                statement.setObject(1, idValue);
-                
-                return statement.executeUpdate() > 0;
-            }
-            catch (SQLException | InterruptedException | ExecutionException ex) {
-                throw new CompletionException(ex);
-            }
-        });
-    }
-    
-    /**
-     * Updates the entity which has the given column-value from the table (performs UPDATE WHERE operation)
-     * @param table The name of the table from which to delete data
-     * @param map A map used to represent the entity
-     * @param idColumn The column name the query will use to filter
-     * @param idValue The value corresponding to the given column name
-     * @return A future that will return a boolean, indicating whether the operation was successful or not
-     */
-    public CompletableFuture<Boolean> update(String table, Map<String, Object> map, String idColumn, Object idValue) {
-        return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = getConnection().get()) {
-                List<String> columnNames = map.keySet().stream().collect(Collectors.toList());
-                String query = buildUpdateQuery(table, columnNames, idColumn);
-                PreparedStatement statement = connection.prepareStatement(query);
-                
-                int index = 1;
-                for (Map.Entry<String, Object> entry : map.entrySet()) {
-                    statement.setObject(index++, entry.getValue());
-                }
-                
-                statement.setObject(index, idValue);
-                
-                return statement.executeUpdate() > 0;
-            }
-            catch (SQLException | InterruptedException | ExecutionException ex) {
-                throw new CompletionException(ex);
-            }
-        });
-    }
-    
-    /**
-     * Updates the entity which has the given column-value from the table (performs UPDATE WHERE operation)
-     * @param <T> The type that represents the entities within the table in the database
-     * @param table The name of the table in which to insert the data
-     * @param object The POJO (Plain Old Java Object) used to represent the entity
-     * @param idColumn The column name the query will use to filter
-     * @param idValue The value corresponding to the given column name
-     * @return A future that will return a boolean, indicating whether the operation was successful or not
-     */
-    public <T extends Object> CompletableFuture<Boolean> update(String table, T object, String idColumn, Object idValue) {
-        Map<String, Object> map = pojoToMap(object);
-        return update(table, map, idColumn, idValue);
-    }
-    
-    /**
      * Executes a custom read query. It is expected to get a list of table records from this method.
      * @param query The SQL query to be executed
      * @return A future what will return a list containing maps that represent the entities of the table
@@ -363,6 +258,152 @@ public class RealTimeDatabase {
                 return mapListToPojoList(maps, clazz);
             }
             catch (InterruptedException | ExecutionException ex) {
+                throw new CompletionException(ex);
+            }
+        });
+    }
+    
+    /**
+     * Adds the provided entity to the database (performs an INSERT operation)
+     * @param table The name of the table in which to insert the data
+     * @param map A map used to represent the entity
+     * @return A future that will return a boolean, indicating whether the operation was successful or not
+     */
+    public CompletableFuture<Boolean> add(String table, Map<String, Object> map) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = getConnection().get()) {
+                List<String> columnNames = map.keySet().stream().collect(Collectors.toList());
+                String query = buildAddQuery(table, columnNames);
+                PreparedStatement statement = connection.prepareStatement(query);
+                
+                int index = 1;
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    statement.setObject(index++, entry.getValue());
+                }
+                
+                return statement.executeUpdate() > 0;
+            }
+            catch (SQLException | InterruptedException | ExecutionException ex) {
+                throw new CompletionException(ex);
+            }
+        });
+    }
+    
+    /**
+     * Adds the provided entity to the database (performs an INSERT operation)
+     * @param <T> The type that represents the entities within the table in the database
+     * @param table The name of the table in which to insert the data
+     * @param object The POJO (Plain Old Java Object) used to represent the entity
+     * @return A future that will return a boolean, indicating whether the operation was successful or not
+     */
+    public <T extends Object> CompletableFuture<Boolean> add(String table, T object) {
+        Map<String, Object> map = pojoToMap(object);
+        return add(table, map);
+    }
+    
+    /**
+     * Removes the entity which has the given column-value from the table (performs a DELETE WHERE operation)
+     * @param table The name of the table from which to delete data
+     * @param idColumn The column name the query will use to filter
+     * @param idValue The value corresponding to the given column name
+     * @return A future that will return a boolean, indicating whether the operation was successful or not
+     */
+    public CompletableFuture<Boolean> remove(String table, String idColumn, Object idValue) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = getConnection().get()) {
+                String query = buildRemoveQuery(table, idColumn);
+                PreparedStatement statement = connection.prepareStatement(query);
+                
+                statement.setObject(1, idValue);
+                
+                return statement.executeUpdate() > 0;
+            }
+            catch (SQLException | InterruptedException | ExecutionException ex) {
+                throw new CompletionException(ex);
+            }
+        });
+    }
+    
+    /**
+     * Updates the entity which has the given column-value from the table (performs UPDATE WHERE operation)
+     * @param table The name of the table from which to delete data
+     * @param map A map used to represent the entity
+     * @param idColumn The column name the query will use to filter
+     * @param idValue The value corresponding to the given column name
+     * @return A future that will return a boolean, indicating whether the operation was successful or not
+     */
+    public CompletableFuture<Boolean> update(String table, Map<String, Object> map, String idColumn, Object idValue) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = getConnection().get()) {
+                List<String> columnNames = map.keySet().stream().collect(Collectors.toList());
+                String query = buildUpdateQuery(table, columnNames, idColumn);
+                PreparedStatement statement = connection.prepareStatement(query);
+                
+                int index = 1;
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    statement.setObject(index++, entry.getValue());
+                }
+                
+                statement.setObject(index, idValue);
+                
+                return statement.executeUpdate() > 0;
+            }
+            catch (SQLException | InterruptedException | ExecutionException ex) {
+                throw new CompletionException(ex);
+            }
+        });
+    }
+    
+    /**
+     * Updates the entity which has the given column-value from the table (performs UPDATE WHERE operation)
+     * @param <T> The type that represents the entities within the table in the database
+     * @param table The name of the table from which to delete data
+     * @param object The POJO (Plain Old Java Object) used to represent the entity
+     * @param idColumn The column name the query will use to filter
+     * @param idValue The value corresponding to the given column name
+     * @return A future that will return a boolean, indicating whether the operation was successful or not
+     */
+    public <T extends Object> CompletableFuture<Boolean> update(String table, T object, String idColumn, Object idValue) {
+        Map<String, Object> map = pojoToMap(object);
+        return update(table, map, idColumn, idValue);
+    }
+    
+    /**
+     * Executes a custom write query. It is expected that this method causes a change in the database.
+     * @param query The SQL query to be executed
+     * @return A future that will return a boolean, indicating whether the operation was successful or not
+     */
+    public CompletableFuture<Boolean> writeQuery(String query) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = getConnection().get()) {
+                PreparedStatement statement = connection.prepareStatement(query);
+                return statement.executeUpdate() > 0;
+            }
+            catch (SQLException | InterruptedException | ExecutionException ex) {
+                throw new CompletionException(ex);
+            }
+        });
+    }
+    
+    /**
+     * Executes a custom write query. It is expected that this method causes a change in the database.
+     * @param query The SQL query to be executed
+     * @param values The values of the prepared statement
+     * @return A future that will return a boolean, indicating whether the operation was successful or not
+     */
+    public CompletableFuture<Boolean> writeStatement(String query, List<Object> values) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = getConnection().get()) {
+                PreparedStatement statement = connection.prepareStatement(query);
+                
+                int index = 1;
+                for (Object value : values) {
+                    statement.setObject(index++, value);
+                }
+                
+                return statement.executeUpdate() > 0;
+            }
+            catch (SQLException | InterruptedException | ExecutionException ex) {
                 throw new CompletionException(ex);
             }
         });
@@ -714,6 +755,12 @@ public class RealTimeDatabase {
         return map;
     }
     
+    /**
+     * Parses a SQL Result Set into a list of maps
+     * @param resultSet The result set to be parsed
+     * @return A list containing all the map equivalents of the records in the result set
+     * @throws SQLException
+     */
     private List<Map<String, Object>> resultSetToMapList(ResultSet resultSet) throws SQLException {
         ResultSetMetaData metaData = resultSet.getMetaData();
         List<Map<String, Object>> maps = new ArrayList<>();
@@ -733,6 +780,14 @@ public class RealTimeDatabase {
         return maps;
     }
     
+    /**
+     * Parses a SQL Result Set into a list of objects
+     * @param <T> The type from which the map will be parsed
+     * @param resultSet The result set to be parsed
+     * @param clazz The class of the POJO
+     * @return A list containing all the POJO equivalents of the maps in the provided list
+     * @throws SQLException 
+     */
     private <T extends Object> List<T> resultSetToPojoList(ResultSet resultSet, Class<T> clazz) throws SQLException {
         List<Map<String, Object>> maps = resultSetToMapList(resultSet);
         return mapListToPojoList(maps, clazz);
